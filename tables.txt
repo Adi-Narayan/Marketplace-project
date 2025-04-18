@@ -1,0 +1,76 @@
+Entities and Attributes:
+
+Users
+id (Primary Key)
+username
+password
+email
+firstname
+lastname
+address
+phone
+
+Products
+id (Primary Key)
+name
+description
+price
+stock_quantity
+category_id (Foreign Key to Categories)
+
+Sets
+id (Primary Key)
+name
+description
+price
+stock_quantity
+
+Set_Items (junction table for Sets and Products)
+set_id (Foreign Key to Sets)
+product_id (Foreign Key to Products)
+
+Categories
+id (Primary Key)
+name (e.g., chains, earrings, rings, bracelets)
+
+Orders
+id (Primary Key)
+user_id (Foreign Key to Users)
+order_date
+total_amount
+status (e.g., pending, shipped, delivered)
+
+Order_Items
+id (Primary Key)
+order_id (Foreign Key to Orders)
+product_id (Foreign Key to Products, nullable if it’s a set)
+set_id (Foreign Key to Sets, nullable if it’s a product)
+quantity
+unit_price
+
+Reviews
+id (Primary Key)
+user_id (Foreign Key to Users)
+product_id (Foreign Key to Products, nullable if reviewing a set)
+set_id (Foreign Key to Sets, nullable if reviewing a product)
+rating (e.g., 1-5)
+comment
+created_at
+
+Payments
+id (Primary Key)
+order_id (Foreign Key to Orders)
+amount
+payment_method (e.g., credit card, PayPal)
+payment_status (e.g., pending, completed, failed)
+transaction_id
+payment_date
+
+
+Relationships (Diamonds):
+Places: Users (1) --- (N) Orders
+Contains: Orders (1) --- (N) Order_Items
+Belongs_To: Products (N) --- (1) Categories
+Includes: Sets (1) --- (N) Set_Items --- (1) Products
+Writes: Users (1) --- (N) Reviews --- (1) Products/Sets
+Has: Orders (1) --- (1) Payments
