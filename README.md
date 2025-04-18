@@ -12,7 +12,7 @@ This is a Python-based application developed for a Database Systems Lab Project.
 - Python 3.x
 - Required Python libraries:
   - `tkinter` (usually included with Python)
-  - `pymysql` or any SQL database connector
+  - `sqlite3` SQL database connector
   - `python-dotenv` for environment variable management
   - `twilio` for SMS notifications
 - A Twilio account for sending SMS notifications
@@ -22,10 +22,9 @@ This is a Python-based application developed for a Database Systems Lab Project.
 1. Clone or download the repository to your local machine.
 2. Install the required Python libraries:
    ```bash
-   pip install pymysql python-dotenv twilio
+   pip install python-dotenv twilio
    ```
-3. Set up your SQL database and update the database connection details in the application code (e.g., in `marketplace.py` or a configuration file).
-4. Create a `.env` file in the project root directory and add your Twilio credentials:
+3. Create a `.env` file in the project root directory and add your Twilio credentials:
    ```
    TWILIO_ACCOUNT_SID=YOUR_TWILIO_ACCOUNT_SID
    TWILIO_AUTH_TOKEN=YOUR_TWILIO_AUTH_TOKEN
@@ -34,24 +33,22 @@ This is a Python-based application developed for a Database Systems Lab Project.
    Replace `YOUR_TWILIO_ACCOUNT_SID`, `YOUR_TWILIO_AUTH_TOKEN`, and `YOUR_TWILIO_PHONE_NUMBER` with your actual Twilio account details.
 
 ## Usage
-1. Ensure your SQL database is running and properly configured.
-2. Navigate to the project directory.
-3. Run the application:
+1. Navigate to the project directory.
+2. Run the application:
    ```bash
    python marketplace.py
    ```
-4. The Tkinter GUI will launch, allowing you to interact with the Jewellery Marketplace.
+3. The Tkinter GUI will launch, allowing you to interact with the Jewellery Marketplace.
 
 ## Project Structure
 - `marketplace.py`: Main application file containing the Tkinter GUI and core logic.
 - `.env`: Environment file for storing Twilio credentials (not tracked in version control).
 - Other potential files (depending on implementation):
   - SQL scripts for database schema setup.
-  - Additional Python modules for database interactions or utility functions.
+  - Additional Python modules for database interactions or utility functions (Future Implementations???).
 
 ## Notes
 - Ensure your Twilio account is active and has sufficient credits to send SMS.
-- Verify the database connection details before running the application.
 - This project is intended for educational purposes as part of a Database Systems Lab.
 
 ## Troubleshooting
@@ -60,4 +57,4 @@ This is a Python-based application developed for a Database Systems Lab Project.
 - Ensure all required Python libraries are installed.
 
 ## Contributors
-Developed for a Database Systems Lab Project.
+Developed for a Database Systems Lab Project by Adi Narayan and Gautham Binod.
