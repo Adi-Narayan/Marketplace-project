@@ -9,7 +9,8 @@ from tkinter.scrolledtext import ScrolledText
 from twilio.rest import Client
 from twilio.base.exceptions import TwilioRestException
 from dotenv import load_dotenv
-from PIL import Image, ImageTk, ImageDraw  
+from PIL import Image, ImageTk
+import subprocess
 
 class JewelryMarketplaceApp:
     def __init__(self, root):
@@ -22,6 +23,9 @@ class JewelryMarketplaceApp:
         self.twilio_client = Client(os.getenv('TWILIO_ACCOUNT_SID'), os.getenv('TWILIO_AUTH_TOKEN'))
         self.twilio_from_number = os.getenv('TWILIO_PHONE_NUMBER')
         
+        # Launch admin terminal
+        subprocess.Popen(['python', 'admin_terminal.py'])
+        
         # Create gradient background
         self.canvas = tk.Canvas(self.root, highlightthickness=0)
         self.canvas.pack(fill=tk.BOTH, expand=True)
@@ -30,14 +34,14 @@ class JewelryMarketplaceApp:
         # Add logo
         self.add_logo()
         
-        # Initialize database
-        self.create_database()
+        # Initialize databases
+        self.create_databases()
         
         # Initialize user state
         self.current_user = None
         self.cart = []
         
-        # Status bar (moved earlier)
+        # Status bar
         self.status_var = tk.StringVar()
         self.status_var.set("Welcome to Jewelry Marketplace")
         self.status_bar = ttk.Label(self.root, textvariable=self.status_var, style='Status.TLabel')
@@ -80,8 +84,8 @@ class JewelryMarketplaceApp:
         self.root.bind('<Configure>', self.create_gradient)
 
     def create_gradient(self, event=None):
-        """Create a gradient background with texture overlay"""
-        self.canvas.delete("gradient", "texture")
+        """Create a gradient background"""
+        self.canvas.delete("gradient")
         width = self.canvas.winfo_width() or self.root.winfo_width()
         height = self.canvas.winfo_height() or self.root.winfo_height()
         
@@ -98,33 +102,22 @@ class JewelryMarketplaceApp:
             b = int(b1 + (b2 - b1) * i / height)
             color = f'#{r:02x}{g:02x}{b:02x}'
             self.canvas.create_line(0, i, width, i, fill=color, tags="gradient")
-        
-        # Create a semi-transparent texture overlay using Pillow
-        texture_img = Image.new("RGBA", (width, height), (255, 255, 255, 0))
-        draw = ImageDraw.Draw(texture_img)
-        for i in range(0, width, 10):
-            for j in range(0, height, 10):
-                draw.ellipse([i, j, i+2, j+2], fill=(255, 255, 255, 13))  # 13/255 ≈ 0.05 alpha
-        
-        # Convert Pillow image to PhotoImage for Tkinter
-        self.texture_photo = ImageTk.PhotoImage(texture_img)
-        self.canvas.create_image(0, 0, image=self.texture_photo, anchor="nw", tags="texture")
+
+        # Update logo position
+        if hasattr(self, 'logo_label'):
+            self.logo_label.place(relx=0.5, rely=0.05, anchor="center")
 
     def add_logo(self):
         """Add logo image on top of gradient"""
         try:
-            # Replace with actual path to your logo image
             logo_path = "logo.png"
             logo_image = Image.open(logo_path)
-            # Resize logo to fit (adjust size as needed)
-            logo_image = logo_image.resize((650, 550), Image.Resampling.LANCZOS)
+            logo_image = logo_image.resize((150, 50), Image.Resampling.LANCZOS)
             self.logo_photo = ImageTk.PhotoImage(logo_image)
             
-            # Create label for logo and place it centered at top
             self.logo_label = tk.Label(self.canvas, image=self.logo_photo, bg="#FFFFFF", bd=0)
             self.logo_label.place(relx=0.5, rely=0.05, anchor="center")
             
-            # Add hover effect
             self.logo_label.bind("<Enter>", lambda e: self.logo_label.config(cursor="hand2", image=self.scale_logo(1.1)))
             self.logo_label.bind("<Leave>", lambda e: self.logo_label.config(cursor="", image=self.logo_photo))
             
@@ -139,7 +132,10 @@ class JewelryMarketplaceApp:
         original_size = (150, 50)
         new_size = (int(original_size[0] * scale), int(original_size[1] * scale))
         logo_image = logo_image.resize(new_size, Image.Resampling.LANCZOS)
-        return ImageTk.PhotoImage(logo_image)
+        scaled_photo = ImageTk.PhotoImage(logo_image)
+        # Keep a reference to prevent garbage collection
+        self.logo_label.scaled_photo = scaled_photo
+        return scaled_photo
 
     def setup_styles(self):
         """Setup custom styles for vibrant UI"""
@@ -150,7 +146,6 @@ class JewelryMarketplaceApp:
                       foreground=[('selected', '#FFFFFF')],
                       expand=[('selected', [1, 1, 1])])
         
-        # Add shadow effect for selected tab
         self.style.configure('TNotebook.Tab', borderwidth=2, relief="raised")
         self.style.map('TNotebook.Tab', 
                       relief=[('selected', 'sunken')],
@@ -168,40 +163,109 @@ class JewelryMarketplaceApp:
         self.style.configure('Treeview', font=('Segoe UI', 10), rowheight=25)
         self.style.configure('Treeview.Heading', font=('Segoe UI', 11, 'bold'))
         
-        # Update status bar with fade-in effect
         self.style.configure('Status.TLabel', background='#333333', foreground='#FFFFFF', 
-                           font=('Segoe UI', 10), padding=5, opacity=0.0)
+                           font=('Segoe UI', 10), padding=5)
         self.status_bar.after(500, self.fade_in_status)
 
     def fade_in_status(self):
-        """Fade-in effect for status bar"""
-        current_opacity = float(self.style.lookup('Status.TLabel', 'opacity'))
-        if current_opacity < 1.0:
-            new_opacity = min(current_opacity + 0.1, 1.0)
-            self.style.configure('Status.TLabel', opacity=new_opacity)
-            self.status_bar.after(50, self.fade_in_status)
+        """Fade-in effect for status bar using foreground color"""
+        current_color = self.style.lookup('Status.TLabel', 'foreground')
+        if current_color == '#FFFFFF':
+            return
+        self.style.configure('Status.TLabel', foreground='#FFFFFF')
+        self.status_bar.after(50, self.fade_in_status)
 
-    def create_database(self):
-        """Create the database if it doesn't exist and initialize tables"""
-        db_exists = os.path.exists("jewelry_marketplace.db")
+    def create_databases(self):
+        """Create the main and hashed passwords databases"""
+        # Main database
         self.conn = sqlite3.connect("jewelry_marketplace.db")
         self.cur = self.conn.cursor()
         
-        if not db_exists:
+        # Check if Users table exists
+        self.cur.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='Users'")
+        main_db_exists = self.cur.fetchone()
+        
+        # Check for admin user
+        admin_exists = False
+        if main_db_exists:
+            self.cur.execute("SELECT id FROM Users WHERE username = ?", ("admin",))
+            admin_exists = self.cur.fetchone()
+        
+        # Hashed passwords database
+        self.hash_conn = sqlite3.connect("hashed_passwords.db")
+        self.hash_cur = self.hash_conn.cursor()
+        
+        # Check if HashedPasswords table exists
+        self.hash_cur.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='HashedPasswords'")
+        hashed_db_exists = self.hash_cur.fetchone()
+        
+        # Check for admin user's hashed password
+        admin_hash_exists = False
+        if hashed_db_exists and admin_exists:
+            self.hash_cur.execute("SELECT hashed_password FROM HashedPasswords WHERE user_id = ?", (admin_exists[0],))
+            admin_hash_exists = self.hash_cur.fetchone()
+        
+        # If tables are missing, admin user is missing, or admin's hashed password is missing, reinitialize
+        if not main_db_exists or not hashed_db_exists or not admin_exists or not admin_hash_exists:
+            print("Initializing databases due to missing tables, admin user, or admin hashed password")
             with open("schema.sql", "r") as schema_file:
                 schema = schema_file.read()
-                self.cur.executescript(schema)
+                # Split schema into main and hashed password parts
+                main_schema = schema[:schema.find('-- Create separate database for hashed passwords')]
+                hashed_schema = schema[schema.find('CREATE TABLE HashedPasswords'):]
+                
+                # Drop existing tables to avoid conflicts
+                if main_db_exists:
+                    self.cur.execute("DROP TABLE IF EXISTS Payments")
+                    self.cur.execute("DROP TABLE IF EXISTS Reviews")
+                    self.cur.execute("DROP TABLE IF EXISTS Order_Items")
+                    self.cur.execute("DROP TABLE IF EXISTS Orders")
+                    self.cur.execute("DROP TABLE IF EXISTS Set_Items")
+                    self.cur.execute("DROP TABLE IF EXISTS Sets")
+                    self.cur.execute("DROP TABLE IF EXISTS Products")
+                    self.cur.execute("DROP TABLE IF EXISTS Categories")
+                    self.cur.execute("DROP TABLE IF EXISTS Users")
+                if hashed_db_exists:
+                    self.hash_cur.execute("DROP TABLE IF EXISTS HashedPasswords")
+                
+                # Execute main schema
+                self.cur.executescript(main_schema)
+                
+                # Execute hashed passwords schema
+                self.hash_cur.executescript(hashed_schema)
             
-            with open("sample_data.sql", "r") as data_file:
-                sample_data = data_file.read()
-                self.cur.executescript(sample_data)
+            # Apply sample data
+            if os.path.exists("sample_data.sql"):
+                with open("sample_data.sql", "r") as data_file:
+                    sample_data = data_file.read()
+                    # Split sample data into statements
+                    statements = sample_data.split(';')
+                    for statement in statements:
+                        statement = statement.strip()
+                        if statement:
+                            if 'INSERT INTO HashedPasswords' in statement:
+                                # Execute HashedPasswords inserts on hash_cur
+                                self.hash_cur.executescript(statement + ';')
+                            else:
+                                # Execute other inserts on cur
+                                self.cur.executescript(statement + ';')
             
             self.conn.commit()
-            print("Database created and initialized with sample data.")
+            self.hash_conn.commit()
+            print("Databases created and initialized with sample data.")
 
     def hash_password(self, password):
         """Hash password using SHA-256"""
         return hashlib.sha256(password.encode()).hexdigest()
+
+    def store_hashed_password(self, user_id, password):
+        """Store hashed password in separate database"""
+        hashed_password = self.hash_password(password)
+        self.hash_cur.execute("""
+            INSERT OR REPLACE INTO HashedPasswords (user_id, hashed_password)
+            VALUES (?, ?)
+        """, (user_id, hashed_password))
+        self.hash_conn.commit()
 
     def send_sms(self, to_number, message):
         """Send SMS using Twilio"""
@@ -270,7 +334,7 @@ class JewelryMarketplaceApp:
 
     def setup_products_frame(self):
         """Setup the products frame"""
-        filter_frame = ttk.Frame(self.products_frame, padding=10, style='TFrame')  # Reduced padding
+        filter_frame = ttk.Frame(self.products_frame, padding=10, style='TFrame')
         filter_frame.pack(fill=tk.X)
         
         ttk.Label(filter_frame, text="Category:").pack(side=tk.LEFT, padx=10)
@@ -288,7 +352,7 @@ class JewelryMarketplaceApp:
         ttk.Button(filter_frame, text="Apply Filters", command=self.load_products).pack(side=tk.LEFT, padx=15)
         ttk.Button(filter_frame, text="Clear Filters", command=self.clear_product_filters).pack(side=tk.LEFT)
         
-        list_frame = ttk.Frame(self.products_frame, padding=10, style='TFrame')  # Reduced padding
+        list_frame = ttk.Frame(self.products_frame, padding=10, style='TFrame')
         list_frame.pack(fill=tk.BOTH, expand=True)
         
         columns = ("ID", "Name", "Description", "Price", "Stock", "Category")
@@ -311,7 +375,7 @@ class JewelryMarketplaceApp:
         y_scroll.pack(side=tk.RIGHT, fill=tk.Y)
         x_scroll.pack(side=tk.BOTTOM, fill=tk.X)
         
-        action_frame = ttk.Frame(self.products_frame, padding=10, style='TFrame')  # Reduced padding
+        action_frame = ttk.Frame(self.products_frame, padding=10, style='TFrame')
         action_frame.pack(fill=tk.X)
         
         ttk.Button(action_frame, text="Add to Cart", command=self.add_product_to_cart).pack(side=tk.LEFT, padx=10)
@@ -322,7 +386,7 @@ class JewelryMarketplaceApp:
 
     def setup_sets_frame(self):
         """Setup the sets frame"""
-        filter_frame = ttk.Frame(self.sets_frame, padding=10, style='TFrame')  # Reduced padding
+        filter_frame = ttk.Frame(self.sets_frame, padding=10, style='TFrame')
         filter_frame.pack(fill=tk.X)
         
         ttk.Label(filter_frame, text="Price Range:").pack(side=tk.LEFT, padx=10)
@@ -335,7 +399,7 @@ class JewelryMarketplaceApp:
         ttk.Button(filter_frame, text="Apply Filters", command=self.load_sets).pack(side=tk.LEFT, padx=15)
         ttk.Button(filter_frame, text="Clear Filters", command=self.clear_set_filters).pack(side=tk.LEFT)
         
-        list_frame = ttk.Frame(self.sets_frame, padding=10, style='TFrame')  # Reduced padding
+        list_frame = ttk.Frame(self.sets_frame, padding=10, style='TFrame')
         list_frame.pack(fill=tk.BOTH, expand=True)
         
         columns = ("ID", "Name", "Description", "Price", "Stock")
@@ -358,7 +422,7 @@ class JewelryMarketplaceApp:
         y_scroll.pack(side=tk.RIGHT, fill=tk.Y)
         x_scroll.pack(side=tk.BOTTOM, fill=tk.X)
         
-        action_frame = ttk.Frame(self.sets_frame, padding=10, style='TFrame')  # Reduced padding
+        action_frame = ttk.Frame(self.sets_frame, padding=10, style='TFrame')
         action_frame.pack(fill=tk.X)
         
         ttk.Button(action_frame, text="Add to Cart", command=self.add_set_to_cart).pack(side=tk.LEFT, padx=10)
@@ -368,7 +432,7 @@ class JewelryMarketplaceApp:
 
     def setup_cart_frame(self):
         """Setup the cart frame"""
-        list_frame = ttk.Frame(self.cart_frame, padding=10, style='TFrame')  # Reduced padding
+        list_frame = ttk.Frame(self.cart_frame, padding=10, style='TFrame')
         list_frame.pack(fill=tk.BOTH, expand=True)
         
         columns = ("Type", "ID", "Name", "Price", "Quantity")
@@ -384,7 +448,7 @@ class JewelryMarketplaceApp:
         self.cart_tree.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
         y_scroll.pack(side=tk.RIGHT, fill=tk.Y)
         
-        action_frame = ttk.Frame(self.cart_frame, padding=10, style='TFrame')  # Reduced padding
+        action_frame = ttk.Frame(self.cart_frame, padding=10, style='TFrame')
         action_frame.pack(fill=tk.X)
         
         ttk.Button(action_frame, text="Remove Item", command=self.remove_from_cart).pack(side=tk.LEFT, padx=10)
@@ -394,7 +458,7 @@ class JewelryMarketplaceApp:
         self.total_var = tk.StringVar(value="Total: $0.00")
         ttk.Label(action_frame, textvariable=self.total_var, font=("Segoe UI", 12, "bold")).pack(side=tk.RIGHT, padx=30)
         
-        checkout_frame = ttk.Frame(self.cart_frame, padding=10, style='TFrame')  # Reduced padding
+        checkout_frame = ttk.Frame(self.cart_frame, padding=10, style='TFrame')
         checkout_frame.pack(fill=tk.X)
         
         ttk.Label(checkout_frame, text="Payment Method:").pack(side=tk.LEFT, padx=10)
@@ -407,7 +471,7 @@ class JewelryMarketplaceApp:
 
     def setup_orders_frame(self):
         """Setup the orders frame"""
-        list_frame = ttk.Frame(self.orders_frame, padding=10, style='TFrame')  # Reduced padding
+        list_frame = ttk.Frame(self.orders_frame, padding=10, style='TFrame')
         list_frame.pack(fill=tk.BOTH, expand=True)
         
         columns = ("ID", "Date", "Total", "Status")
@@ -425,14 +489,14 @@ class JewelryMarketplaceApp:
         self.orders_tree.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
         y_scroll.pack(side=tk.RIGHT, fill=tk.Y)
         
-        action_frame = ttk.Frame(self.orders_frame, padding=10, style='TFrame')  # Reduced padding
+        action_frame = ttk.Frame(self.orders_frame, padding=10, style='TFrame')
         action_frame.pack(fill=tk.X)
         
         ttk.Button(action_frame, text="Refresh Orders", command=self.load_orders).pack(side=tk.LEFT, padx=10)
 
     def setup_profile_frame(self):
         """Setup the profile frame"""
-        frame = ttk.Frame(self.profile_frame, padding=10, style='TFrame')  # Reduced padding
+        frame = ttk.Frame(self.profile_frame, padding=10, style='TFrame')
         frame.pack(expand=True)
         
         ttk.Label(frame, text="User Profile", font=("Segoe UI", 18, "bold")).grid(row=0, column=0, columnspan=2, pady=20)
@@ -466,7 +530,7 @@ class JewelryMarketplaceApp:
 
     def setup_admin_frame(self):
         """Setup the admin frame"""
-        frame = ttk.Frame(self.admin_frame, padding=10, style='TFrame')  # Reduced padding
+        frame = ttk.Frame(self.admin_frame, padding=10, style='TFrame')
         frame.pack(fill=tk.BOTH, expand=True)
         
         ttk.Label(frame, text="Admin Panel", font=("Segoe UI", 18, "bold")).grid(row=0, column=0, columnspan=2, pady=20)
@@ -485,31 +549,38 @@ class JewelryMarketplaceApp:
         ttk.Button(frame, text="Update Order Status", command=self.update_order_status).grid(row=8, column=0, pady=10, padx=10)
 
     def login(self):
-        """Handle user login"""
+        """Handle user login using hashed password"""
         username = self.username_entry.get()
-        password = self.hash_password(self.password_entry.get())
+        password = self.password_entry.get()
+        hashed_password = self.hash_password(password)
         
-        self.cur.execute("SELECT * FROM Users WHERE username = ? AND password = ?", (username, password))
+        self.cur.execute("SELECT * FROM Users WHERE username = ?", (username,))
         user = self.cur.fetchone()
         
         if user:
-            self.current_user = user
-            self.notebook.add(self.products_frame, text="Products")
-            self.notebook.add(self.sets_frame, text="Sets")
-            self.notebook.add(self.cart_frame, text="Cart")
-            self.notebook.add(self.orders_frame, text="Orders")
-            self.notebook.add(self.profile_frame, text="Profile")
+            self.hash_cur.execute("SELECT hashed_password FROM HashedPasswords WHERE user_id = ?", (user[0],))
+            stored_hash = self.hash_cur.fetchone()
             
-            if username == "admin":
-                self.notebook.add(self.admin_frame, text="Admin")
-            
-            self.notebook.forget(self.login_frame)
-            self.notebook.forget(self.register_frame)
-            self.status_var.set(f"Welcome, {user[4]} {user[5]}")
-            self.load_products()
-            self.load_sets()
-            self.load_orders()
-            self.load_profile()
+            if stored_hash and stored_hash[0] == hashed_password:
+                self.current_user = user
+                self.notebook.add(self.products_frame, text="Products")
+                self.notebook.add(self.sets_frame, text="Sets")
+                self.notebook.add(self.cart_frame, text="Cart")
+                self.notebook.add(self.orders_frame, text="Orders")
+                self.notebook.add(self.profile_frame, text="Profile")
+                
+                if username == "admin" and password == "admin123":
+                    self.notebook.add(self.admin_frame, text="Admin")
+                
+                self.notebook.forget(self.login_frame)
+                self.notebook.forget(self.register_frame)
+                self.status_var.set(f"Welcome, {user[4]} {user[5]}")
+                self.load_products()
+                self.load_sets()
+                self.load_orders()
+                self.load_profile()
+            else:
+                messagebox.showerror("Login Failed", "Invalid username or password")
         else:
             messagebox.showerror("Login Failed", "Invalid username or password")
 
@@ -545,12 +616,15 @@ class JewelryMarketplaceApp:
         full_phone = f"+91{phone}"
         
         try:
-            hashed_password = self.hash_password(password)
             self.cur.execute("""
                 INSERT INTO Users (username, password, email, firstname, lastname, address, phone)
                 VALUES (?, ?, ?, ?, ?, ?, ?)
-            """, (username, hashed_password, email, firstname, lastname, address, full_phone))
+            """, (username, password, email, firstname, lastname, address, full_phone))
+            user_id = self.cur.lastrowid
             self.conn.commit()
+            
+            # Store hashed password
+            self.store_hashed_password(user_id, password)
             
             # Send SMS notification
             sms_message = f"Welcome to Jewelry Marketplace, {firstname}! Your account has been successfully created."
@@ -1126,7 +1200,10 @@ class JewelryMarketplaceApp:
                     SET email = ?, firstname = ?, lastname = ?, address = ?, phone = ?, password = ?
                     WHERE id = ?
                 """
-                params = [email, firstname, lastname, address, full_phone, self.hash_password(password), self.current_user[0]]
+                params = [email, firstname, lastname, address, full_phone, password, self.current_user[0]]
+                
+                # Update hashed password
+                self.store_hashed_password(self.current_user[0], password)
             
             self.cur.execute(update_query, params)
             self.conn.commit()
@@ -1431,7 +1508,7 @@ class JewelryMarketplaceApp:
                 entry.grid(row=i, column=1, pady=10)
             else:
                 entry = ttk.Entry(set_window, width=40)
-                entry.insert(0, value)
+                entry.insert(entry, value)
                 entry.grid(row=i, column=1, pady=10)
             entries[key] = entry
         
@@ -1449,7 +1526,7 @@ class JewelryMarketplaceApp:
         selected_products = []
         for i, (pid, name) in enumerate(products):
             var = tk.BooleanVar(value=pid in current_product_ids)
-            ttk.Checkbutton(products_frame, text=name, variable=var).grid(row=i//2, column=i%2, sticky=tk.W, padx=10)
+            ttk.Checkbutton(products_frame, text=name, variable=var).grid(row=i//2, column=i%2, static=tk.W, padx=10)
             selected_products.append((pid, var))
         
         def submit_update():

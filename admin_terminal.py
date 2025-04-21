@@ -8,6 +8,7 @@ class AdminTerminal:
         self.root = root
         self.root.title("Admin Terminal")
         self.root.geometry("800x600")
+        self.root.resizable(False, False)  # Prevent resizing for consistent layout
         
         # Database connections
         self.conn_main = sqlite3.connect("jewelry_marketplace.db")
@@ -19,37 +20,48 @@ class AdminTerminal:
         # Setup style
         self.style = ttk.Style()
         self.style.configure('TFrame', background='#2E2E2E')
-        self.style.configure('TLabel', background='#2E2E2E', foreground='#FFFFFF', font=('Courier', 12))
-        self.style.configure('TButton', font=('Courier', 12, 'bold'), background='#4ECDC4')
-        self.style.configure('TEntry', font=('Courier', 12))
+        self.style.configure('TLabel', background='#2E2E2E', foreground='#FFFFFF', font=('Arial', 12))
+        self.style.configure('TButton', font=('Arial', 12, 'bold'), padding=10)
+        self.style.configure('TEntry', font=('Arial', 12))
         
         # Create login frame
         self.login_frame = ttk.Frame(self.root, padding=20, style='TFrame')
         self.login_frame.pack(fill=tk.BOTH, expand=True)
         
-        ttk.Label(self.login_frame, text="Admin Terminal Login").grid(row=0, column=0, columnspan=2, pady=20)
+        # Center login elements
+        self.login_frame.columnconfigure(0, weight=1)
+        self.login_frame.columnconfigure(1, weight=1)
         
-        ttk.Label(self.login_frame, text="Username:").grid(row=1, column=0, sticky=tk.W, pady=10)
+        ttk.Label(self.login_frame, text="Admin Terminal Login", font=('Arial', 16, 'bold')).grid(row=0, column=0, columnspan=2, pady=20)
+        
+        ttk.Label(self.login_frame, text="Username:").grid(row=1, column=0, sticky=tk.E, pady=10, padx=10)
         self.username_entry = ttk.Entry(self.login_frame, width=30)
-        self.username_entry.grid(row=1, column=1, pady=10)
+        self.username_entry.grid(row=1, column=1, sticky=tk.W, pady=10, padx=10)
         
-        ttk.Label(self.login_frame, text="Password:").grid(row=2, column=0, sticky=tk.W, pady=10)
+        ttk.Label(self.login_frame, text="Password:").grid(row=2, column=0, sticky=tk.E, pady=10, padx=10)
         self.password_entry = ttk.Entry(self.login_frame, width=30, show="*")
-        self.password_entry.grid(row=2, column=1, pady=10)
+        self.password_entry.grid(row=2, column=1, sticky=tk.W, pady=10, padx=10)
         
         ttk.Button(self.login_frame, text="Login", command=self.login).grid(row=3, column=0, columnspan=2, pady=20)
         
-        # Bind enter key to login
+        # Bind Enter key to login, ensuring focus is handled
         self.root.bind('<Return>', lambda event: self.login())
+        
+        # Set focus to username field
+        self.username_entry.focus_set()
     
     def hash_password(self, password):
         """Hash password using SHA-256"""
+        print(f"Hashing string: '{password}'")  # Debug what’s being hashed
         return hashlib.sha256(password.encode()).hexdigest()
     
     def login(self):
         """Handle admin login"""
-        username = self.username_entry.get()
-        password = self.password_entry.get()
+        username = self.username_entry.get().strip()
+        password = self.password_entry.get().strip()
+        
+        print(f"Raw username input: '{username}'")
+        print(f"Raw password input: '{password}'")
         
         if not username or not password:
             messagebox.showerror("Error", "Please enter both username and password")
@@ -60,19 +72,31 @@ class AdminTerminal:
             user = self.cur_main.fetchone()
             
             if user:
+                print(f"Found user: {user['username']}, ID: {user['id']}")
                 self.cur_hash.execute("SELECT hashed_password FROM HashedPasswords WHERE user_id = ?", (user['id'],))
                 stored_hash = self.cur_hash.fetchone()
                 
-                if stored_hash and stored_hash[0] == self.hash_password(password) and username == "admin":
-                    messagebox.showinfo("Success", "Login successful")
-                    self.show_admin_panel()
+                if stored_hash:
+                    input_hash = self.hash_password(password)  # Ensure password is used
+                    print(f"Stored hash: {stored_hash[0]}")
+                    print(f"Input hash: {input_hash}")
+                    if stored_hash[0] == input_hash and username == "admin":
+                        print("Login successful")
+                        messagebox.showinfo("Success", "Login successful")
+                        self.show_admin_panel()
+                    else:
+                        print("Failed: Invalid credentials or not an admin user")
+                        messagebox.showerror("Error", "Invalid credentials or not an admin user")
                 else:
-                    messagebox.showerror("Error", "Invalid credentials or not an admin user")
+                    print("No hashed password found for user")
+                    messagebox.showerror("Error", "No hashed password found for user")
             else:
+                print(f"User not found: {username}")
                 messagebox.showerror("Error", "User not found")
         except sqlite3.Error as e:
+            print(f"Database error: {e}")
             messagebox.showerror("Error", f"Database error: {e}")
-    
+        
     def show_admin_panel(self):
         """Show admin panel after successful login"""
         self.login_frame.destroy()
@@ -80,13 +104,16 @@ class AdminTerminal:
         admin_frame = ttk.Frame(self.root, padding=20, style='TFrame')
         admin_frame.pack(fill=tk.BOTH, expand=True)
         
-        ttk.Label(admin_frame, text="Admin Panel").grid(row=0, column=0, columnspan=2, pady=20)
+        admin_frame.columnconfigure(0, weight=1)
+        admin_frame.columnconfigure(1, weight=1)
+        
+        ttk.Label(admin_frame, text="Admin Panel", font=('Arial', 16, 'bold')).grid(row=0, column=0, columnspan=2, pady=20)
         
         # Add admin functionality buttons
-        ttk.Button(admin_frame, text="View All Orders", command=self.view_orders).grid(row=1, column=0, pady=10)
-        ttk.Button(admin_frame, text="Update Order Status", command=self.update_order_status).grid(row=1, column=1, pady=10)
-        ttk.Button(admin_frame, text="View All Users", command=self.view_users).grid(row=2, column=0, pady=10)
-        ttk.Button(admin_frame, text="Logout", command=self.logout).grid(row=3, column=0, columnspan=2, pady=20)
+        ttk.Button(admin_frame, text="View All Orders", command=self.view_orders).grid(row=1, column=0, pady=10, padx=10, sticky=tk.EW)
+        ttk.Button(admin_frame, text="Update Order Status", command=self.update_order_status).grid(row=1, column=1, pady=10, padx=10, sticky=tk.EW)
+        ttk.Button(admin_frame, text="View All Users", command=self.view_users).grid(row=2, column=0, pady=10, padx=10, sticky=tk.EW)
+        ttk.Button(admin_frame, text="Logout", command=self.logout).grid(row=3, column=0, columnspan=2, pady=20, sticky=tk.EW)
     
     def view_orders(self):
         """View all orders"""
@@ -100,6 +127,11 @@ class AdminTerminal:
         tree.heading("Date", text="Date")
         tree.heading("Total", text="Total")
         tree.heading("Status", text="Status")
+        tree.column("ID", width=100)
+        tree.column("User", width=150)
+        tree.column("Date", width=150)
+        tree.column("Total", width=100)
+        tree.column("Status", width=100)
         
         self.cur_main.execute("""
             SELECT o.id, u.username, o.order_date, o.total_amount, o.status
@@ -115,7 +147,7 @@ class AdminTerminal:
     
     def update_order_status(self):
         """Update order status"""
-        order_id = tk.simpledialog.askinteger("Input", "Enter Order ID:")
+        order_id = tk.simpledialog.askinteger("Input", "Enter Order ID:", parent=self.root)
         if not order_id:
             return
         
@@ -159,6 +191,10 @@ class AdminTerminal:
         tree.heading("Username", text="Username")
         tree.heading("Email", text="Email")
         tree.heading("Name", text="Full Name")
+        tree.column("ID", width=100)
+        tree.column("Username", width=150)
+        tree.column("Email", width=200)
+        tree.column("Name", width=200)
         
         self.cur_main.execute("SELECT id, username, email, firstname, lastname FROM Users")
         for row in self.cur_main.fetchall():

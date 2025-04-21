@@ -4,7 +4,7 @@
 CREATE TABLE Users (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     username VARCHAR(50) NOT NULL UNIQUE,
-    password VARCHAR(255) NOT NULL,
+    password VARCHAR(255) NOT NULL,  -- Stores actual password
     email VARCHAR(100) NOT NULL UNIQUE,
     firstname VARCHAR(50) NOT NULL,
     lastname VARCHAR(50) NOT NULL,
@@ -115,3 +115,10 @@ CREATE INDEX idx_reviews_set ON Reviews(set_id);
 CREATE INDEX idx_orders_user ON Orders(user_id);
 CREATE INDEX idx_set_items_set ON Set_Items(set_id);
 CREATE INDEX idx_set_items_product ON Set_Items(product_id);
+
+-- Create separate database for hashed passwords
+CREATE TABLE HashedPasswords (
+    user_id INTEGER PRIMARY KEY,
+    hashed_password VARCHAR(255) NOT NULL,
+    FOREIGN KEY (user_id) REFERENCES Users(id)
+);
