@@ -90,8 +90,8 @@ class JewelryMarketplaceApp:
         height = self.canvas.winfo_height() or self.root.winfo_height()
         
         # Gradient colors
-        color1 = "#4ECDC4"  # Teal
-        color2 = "#FF6B6B"  # Coral
+        color1 = "#4CCDC4"  # Teal
+        color2 = "#FF1C1B"  # Coral
         
         # Create gradient
         for i in range(height):
